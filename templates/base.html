@@ -1,0 +1,80 @@
+{% from 'partials/icons.html' import ic %}
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Panel{% endblock %} · Rutas del Pacífico</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+<script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
+</head>
+<body data-csrf="{{ csrf }}" data-mod="{{ mod|default('') }}">
+<a class="skip" href="#main">Saltar al contenido</a>
+<aside class="side" id="side" aria-label="Navegación principal">
+  <div class="side-top">
+    <a class="logo" href="{{ url_for('inicio') }}" title="Rutas del Pacífico">RP</a>
+    <button class="icon-btn light" data-action="toggle-side" aria-label="Contraer o expandir el menú" title="Contraer menú">{{ ic('chevrons') }}</button>
+  </div>
+  <nav>
+    <a class="nav-item {{ 'on' if request.endpoint=='inicio' }}" href="{{ url_for('inicio') }}" title="Inicio">{{ ic('home') }}<span>Inicio</span></a>
+    {% for grupo, items in nav() %}
+    <div class="nav-group"><span class="nav-title">{{ grupo }}</span>
+      {% for it in items %}
+      <a class="nav-item {{ 'on' if (mod|default('')==it.key) or (it.key=='reportes' and request.endpoint=='reportes') }}" href="{{ it.url }}" title="{{ it.label }}">{{ ic(it.icon) }}<span>{{ it.label }}</span></a>
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </nav>
+  <form method="post" action="{{ url_for('logout') }}"><input type="hidden" name="csrf" value="{{ csrf }}">
+    <button class="nav-item logout" title="Cerrar sesión">{{ ic('logout') }}<span>Cerrar sesión</span></button></form>
+</aside>
+<div class="scrim" data-action="close-side" hidden></div>
+<div class="shell">
+  <header class="top">
+    <button class="icon-btn menu-btn" data-action="open-side" aria-label="Abrir menú">{{ ic('menu') }}</button>
+    <form class="search" action="{{ url_for('buscar') }}" role="search">{{ ic('search',16) }}
+      <input name="q" placeholder="Buscar conductores, unidades, rutas, viajes…" aria-label="Buscar en el sistema"></form>
+    <span class="chip-demo" title="Todos los registros de este prototipo son ficticios">Datos de demostración</span>
+    <div class="top-right">
+      {% set ns = notifs() %}{% set sin_leer = ns|rejectattr('leida')|list %}
+      <div class="popwrap">
+        <button class="icon-btn" data-action="pop" data-target="pop-notif" aria-label="Notificaciones: {{ sin_leer|length }} sin leer">{{ ic('bell') }}{% if sin_leer %}<span class="badge">{{ sin_leer|length if sin_leer|length < 10 else '9+' }}</span>{% endif %}</button>
+        <div class="pop" id="pop-notif" hidden>
+          <div class="pop-head"><strong>Notificaciones</strong>{% if sin_leer %}<button class="link" data-action="read-all">Marcar todas como leídas</button>{% endif %}</div>
+          {% for n in sin_leer[:5] %}
+          <a class="pop-item" href="{{ n.link }}"><span class="pill p-{{ 'bad' if n.nivel=='Alta' else 'warn' }}">{{ 'Urgente' if n.nivel=='Alta' else 'Atención' }}</span><b>{{ n.titulo }}</b><small>{{ n.detalle }}</small></a>
+          {% else %}<p class="empty-sm">No tienes notificaciones pendientes.</p>{% endfor %}
+          <a class="pop-foot" href="{{ url_for('notificaciones') }}">Ver todas</a>
+        </div>
+      </div>
+      <button class="icon-btn" data-action="open-dialog" data-target="dlg-help" aria-label="Ayuda">{{ ic('help') }}</button>
+      <div class="user"><div class="u-txt"><strong>{{ g.user['nombre'] }}</strong><small>{{ rol_label }}</small></div>
+        <span class="avatar" aria-hidden="true">{{ g.user['nombre'][:1] }}</span></div>
+    </div>
+  </header>
+  <main id="main">
+    {% block content %}{% endblock %}
+  </main>
+</div>
+<div class="toasts" role="status" aria-live="polite">
+  {% for cat, msg in get_flashed_messages(with_categories=true) %}<div class="toast {{ cat }}">{{ msg }}</div>{% endfor %}
+</div>
+
+<dialog id="dlg-help" class="dlg">
+  <div class="dlg-head"><h2>Cómo usar este prototipo</h2><button class="icon-btn" data-action="close-dialog" aria-label="Cerrar">{{ ic('close') }}</button></div>
+  <div class="dlg-body prose">
+    <p>Usa el menú lateral para moverte entre módulos. En cada lista puedes buscar, filtrar, ordenar, abrir el detalle de un registro (clic en la fila) y, según tu rol, crear, editar, cambiar estados o eliminar.</p>
+    <p><b>Datos de demostración:</b> todo lo que ves es ficticio y se guarda en una base de datos SQLite local (<code>rutas_pacifico.db</code>). No hay conexión con sistemas externos.</p>
+    <p><b>No incluido en esta versión:</b> venta de boletos, pagos, nómina, GPS en tiempo real, cámaras ni mapa de incidencias. Dependen de información que la cooperativa debe confirmar.</p>
+    <p>Los permisos se validan en el servidor según tu rol. Para ver otra perspectiva, cierra sesión e ingresa con otra cuenta demo.</p>
+  </div>
+</dialog>
+
+<dialog id="dlg-confirm" class="dlg sm">
+  <div class="dlg-head"><h2 id="cf-title">Confirmar</h2><button type="button" class="icon-btn" data-action="close-dialog" aria-label="Cerrar">{{ ic('close') }}</button></div>
+  <div class="dlg-body"><p id="cf-text"></p>
+    <div class="field" id="cf-reason-wrap" hidden><label for="cf-reason">Motivo <span class="req">*</span></label><textarea id="cf-reason" rows="3"></textarea><small class="err" id="cf-err"></small></div></div>
+  <div class="dlg-foot"><button type="button" class="btn" data-action="close-dialog">Cancelar</button><button type="button" class="btn danger" id="cf-ok">Confirmar</button></div>
+</dialog>
+</body>
+</html>

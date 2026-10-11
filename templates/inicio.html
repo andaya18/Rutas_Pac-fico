@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% from 'partials/icons.html' import ic %}
+{% block title %}Inicio{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Hola, {{ g.user['nombre'].split(' ')[0] }}</h1>
+    <p>{{ rol_label }}. Resumen al {{ hoy_fmt }}.</p></div>
+  <form class="period" method="get" aria-label="Periodo de los gráficos">
+    <label for="dias">Periodo de los gráficos</label>
+    <select id="dias" name="dias" data-autosubmit>
+      {% for d, t in [(30,'Últimos 30 días'),(90,'Últimos 90 días'),(365,'Último año')] %}<option value="{{ d }}" {{ 'selected' if d==dias }}>{{ t }}</option>{% endfor %}
+    </select>
+  </form>
+</div>
+
+<div class="kpis">
+  {% for c in top %}
+  <a class="kpi k-{{ c.color }}" href="{{ c.link }}">
+    <div><span class="kpi-l">{{ c.label }}</span><strong class="kpi-v">{{ c.value }}</strong><small class="kpi-s">{{ c.sub }}</small></div>
+    <span class="kpi-ic">{{ ic(c.icon, 22) }}</span>
+  </a>
+  {% endfor %}
+</div>
+
+{% if mini %}
+<div class="minis">
+  {% for label, value, link in mini %}<a class="mini" href="{{ link }}"><strong>{{ value }}</strong><span>{{ label }}</span></a>{% endfor %}
+</div>
+{% endif %}
+
+<div class="grid2">
+  <section class="card att">
+    <div class="card-head"><h2>Requiere atención</h2><a class="link" href="{{ url_for('notificaciones') }}">Ver todo</a></div>
+    {% for n in atencion %}
+    <a class="att-item" href="{{ n.link }}"><span class="pill p-{{ 'bad' if n.nivel=='Alta' else 'warn' }}">{{ 'Urgente' if n.nivel=='Alta' else 'Atención' }}</span>
+      <span><b>{{ n.titulo }}</b><small>{{ n.detalle }}</small></span></a>
+    {% else %}<p class="empty-sm">No hay pendientes por atender. Buen trabajo.</p>{% endfor %}
+  </section>
+
+  {% for p in panels %}
+  <section class="card {{ 'span2' if p.tipo=='tabla' }}">
+    <div class="card-head"><div><h2>{{ p.titulo }}</h2><small class="muted">{{ p.sub }}</small></div>{% if p.link %}<a class="link" href="{{ p.link }}">Abrir lista</a>{% endif %}</div>
+    {% if p.tipo=='tabla' %}
+      {% if p.rows %}
+      <div class="tbl-wrap"><table class="tbl compact"><thead><tr>{% for c in p.cols %}<th>{{ c[1] }}</th>{% endfor %}</tr></thead>
+        <tbody>{% for r in p.rows %}<tr>{% for c in p.cols %}<td data-label="{{ c[1] }}">{{ r|cell(c) }}</td>{% endfor %}</tr>{% endfor %}</tbody></table></div>
+      {% else %}<p class="empty-sm">No hay viajes programados desde hoy.</p>{% endif %}
+    {% elif p.tipo=='hbars' %}
+      {% if p.datos %}{% set mx = (p.datos|map(attribute=1)|max) or 1 %}
+      <ul class="hbars">{% for lab, val in p.datos %}
+        <li><span class="hb-l">{{ lab }}</span><span class="hb-track"><span class="hb-fill t-{{ ('ok' if lab in ['Vigente','Aprobada','Completada'] else 'bad' if lab in ['Vencido','Vencida','No aprobada'] else 'warn' if lab in ['Próximo a vencer','Asignada','En progreso'] else 'off' if lab in ['Sin vencimiento'] else 'blue') if p.tono=='estado' else 'blue' }}" style="width: {{ (val*100/mx)|round }}%"></span></span><b class="hb-v">{{ val }}</b></li>{% endfor %}</ul>
+      {% else %}<p class="empty-sm">Sin datos para este periodo.</p>{% endif %}
+    {% elif p.tipo=='cols' %}
+      {% if p.datos %}{% set mx = (p.datos|map(attribute=1)|max) or 1 %}
+      <div class="cols">{% for lab, val in p.datos %}<div class="col"><b>{{ val }}</b><span class="col-bar" style="height: {{ (val*100/mx)|round }}%"></span><small>{{ lab[5:] }}/{{ lab[2:4] }}</small></div>{% endfor %}</div>
+      {% else %}<p class="empty-sm">Sin datos para este periodo.</p>{% endif %}
+    {% endif %}
+  </section>
+  {% endfor %}
+</div>
+{% endblock %}

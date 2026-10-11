@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% from 'partials/icons.html' import ic %}
+{% block title %}Reportes{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Reportes</h1><p>Consulta, filtra y exporta información según tu rol.</p></div>
+  <div class="actions"><a class="btn" href="{{ url_for('reporte_csv', r=key, desde=desde, hasta=hasta) }}">{{ ic('download',16) }} Exportar CSV</a></div></div>
+<div class="rep-layout">
+  <nav class="card rep-list" aria-label="Tipos de reporte">
+    {% for k, v in perm.items() %}<a class="{{ 'on' if k==key }}" href="{{ url_for('reportes', r=k) }}" {% if k==key %}aria-current="page"{% endif %}>{{ v.titulo }}</a>{% endfor %}
+  </nav>
+  <section class="card">
+    <div class="card-head"><h2>{{ rp.titulo }}</h2></div>
+    {% if rp.fecha %}
+    <form class="filters inline" method="get"><input type="hidden" name="r" value="{{ key }}">
+      <div class="field"><label for="desde">Desde</label><input id="desde" type="date" name="desde" value="{{ desde }}"></div>
+      <div class="field"><label for="hasta">Hasta</label><input id="hasta" type="date" name="hasta" value="{{ hasta }}"></div>
+      <div class="filter-actions"><button class="btn soft">Aplicar filtros</button><a class="icon-btn" href="{{ url_for('reportes', r=key) }}" aria-label="Limpiar filtros">{{ ic('filterx') }}</a></div>
+    </form>
+    {% endif %}
+    <p class="rep-meta">Periodo: {{ periodo }}. Generado el {{ generado }} por {{ g.user['nombre'] }}. {{ rows|length }} fila(s).</p>
+    {% if rows %}
+    <div class="tbl-wrap"><table class="tbl compact"><thead><tr>{% for c in rp.cols %}<th>{{ c[1] }}</th>{% endfor %}</tr></thead>
+      <tbody>{% for r in rows %}<tr>{% for c in rp.cols %}<td data-label="{{ c[1] }}">{{ r|cell(c) }}</td>{% endfor %}</tr>{% endfor %}</tbody></table></div>
+    <p class="muted small">«—» significa dato no disponible; «0» significa que se registró cero.</p>
+    {% else %}<div class="empty"><h2>Sin resultados</h2><p>No hay datos para el periodo y los filtros elegidos.</p></div>{% endif %}
+  </section>
+</div>
+{% endblock %}

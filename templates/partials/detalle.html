@@ -1,0 +1,85 @@
+{% from 'partials/icons.html' import ic %}
+<div class="dr-head">
+  <div><h2>{{ titulo or m.singular|capitalize }}</h2>{% if estado %}{{ estado|pill }}{% endif %}</div>
+  <button class="icon-btn" data-action="close-drawer" aria-label="Cerrar detalle">{{ ic('close') }}</button>
+</div>
+<div class="tabs" role="tablist">
+  <button role="tab" class="tab on" data-tab="resumen">Resumen</button>
+  {% for t, cols, rows in rels %}<button role="tab" class="tab" data-tab="rel{{ loop.index }}">{{ t }}</button>{% endfor %}
+  {% if mod=='capacitaciones' %}<button role="tab" class="tab" data-tab="asig">Asignados</button><button role="tab" class="tab" data-tab="preg">Preguntas</button>{% endif %}
+  <button role="tab" class="tab" data-tab="hist">Historial</button>
+</div>
+
+<section class="tabpanel" data-panel="resumen">
+  {% if m.note %}<p class="note">{{ m.note }}</p>{% endif %}
+  <dl class="dl">
+    {% for label, val, full in campos %}<div class="{{ 'full' if full }}"><dt>{{ label }}</dt><dd>{{ val }}</dd></div>{% endfor %}
+    {% if row['creado_por'] is defined and row['creado_por'] %}<div class="full meta"><dt>Registro</dt><dd>Creado por {{ row['creado_por'] }}{% if row['creado_en'] %} el {{ row['creado_en']|fdt }}{% endif %}{% if row['actualizado_por'] %} · Última edición: {{ row['actualizado_por'] }} ({{ row['actualizado_en']|fdt }}){% endif %}</dd></div>{% endif %}
+  </dl>
+</section>
+
+{% for t, cols, rows in rels %}
+<section class="tabpanel" data-panel="rel{{ loop.index }}" hidden>
+  {% if rows %}<div class="tbl-wrap"><table class="tbl compact"><thead><tr>{% for c in cols %}<th>{{ c[1] }}</th>{% endfor %}</tr></thead>
+    <tbody>{% for r in rows %}<tr>{% for c in cols %}<td data-label="{{ c[1] }}">{{ r|cell(c) }}</td>{% endfor %}</tr>{% endfor %}</tbody></table></div>
+  {% else %}<p class="empty-sm">Sin registros relacionados.</p>{% endif %}
+</section>
+{% endfor %}
+
+{% if mod=='capacitaciones' %}
+<section class="tabpanel" data-panel="asig" hidden>
+  {% if lv=='w' %}
+  <form class="subform" action="{{ url_for('cap_asignar', cid=row['id']) }}" data-ajax-drawer>
+    <h3>Asignar a conductores</h3>
+    <div class="checks">{% for c in extra.conductores %}<label><input type="checkbox" name="conductores" value="{{ c['id'] }}"> {{ c['n'] }}</label>{% endfor %}</div>
+    <label class="inline"><input type="checkbox" name="todos" value="1"> Asignar a todos los conductores activos</label>
+    <div class="field"><label for="fl-{{ row['id'] }}">Fecha límite</label><input id="fl-{{ row['id'] }}" type="date" name="fecha_limite"></div>
+    <small class="err" data-err="__all__"></small>
+    <button class="btn primary">Asignar</button>
+  </form>
+  {% endif %}
+  {% if extra.asignados %}
+  <div class="tbl-wrap"><table class="tbl compact"><thead><tr><th>Conductor</th><th>Límite</th><th>Estado</th><th>Nota</th><th>Intentos</th><th></th></tr></thead><tbody>
+    {% for a in extra.asignados %}<tr>
+      <td data-label="Conductor">{{ a['conductor'] }}</td><td data-label="Límite">{{ a['fecha_limite']|fdate }}</td><td data-label="Estado">{{ a['estado_v']|pill }}</td>
+      <td data-label="Nota">{{ (a['nota'] ~ '%') if a['nota'] is not none else '—' }}</td><td data-label="Intentos">{{ a['intentos'] }}</td>
+      <td class="act-inline">
+        {% if lv=='w' %}
+          {% if a['estado'] in ('Asignada','En progreso') and row['tipo']!='Cuestionario' %}<button class="btn xs" data-post="{{ url_for('asig_accion', aid=a['id'], accion='asistencia') }}">Registrar asistencia</button>{% endif %}
+          {% if a['estado']=='No aprobada' %}<button class="btn xs" data-post="{{ url_for('asig_accion', aid=a['id'], accion='reabrir') }}">Permitir repetir</button>{% endif %}
+          <button class="btn xs danger-o" data-post="{{ url_for('asig_accion', aid=a['id'], accion='quitar') }}" data-confirm="¿Retirar esta asignación?">Quitar</button>
+        {% elif g.user['rol']=='conductor' and a['estado'] in ('Asignada','En progreso','No aprobada') and row['estado']=='Publicada' %}
+          <a class="btn xs primary" href="{{ url_for('evaluar', aid=a['id']) }}">{{ 'Iniciar evaluación' if row['tipo']=='Cuestionario' else 'Ver contenido' }}</a>
+        {% endif %}
+      </td></tr>{% endfor %}
+  </tbody></table></div>
+  {% else %}<p class="empty-sm">Aún no hay conductores asignados.</p>{% endif %}
+</section>
+<section class="tabpanel" data-panel="preg" hidden>
+  {% for p in extra.preguntas %}
+  <div class="qitem"><b>{{ loop.index }}. {{ p['texto'] }}</b>
+    <ul>{% for l in ['a','b','c','d'] %}{% if p['opcion_' ~ l] %}<li class="{{ 'right' if p['correcta']==l|upper }}">{{ l|upper }}) {{ p['opcion_' ~ l] }}{% if p['correcta']==l|upper %} <span class="pill p-ok">Correcta</span>{% endif %}</li>{% endif %}{% endfor %}</ul>
+    {% if lv=='w' %}<button class="btn xs danger-o" data-post="{{ url_for('pregunta_eliminar', pid=p['id']) }}" data-confirm="¿Eliminar esta pregunta?">Eliminar pregunta</button>{% endif %}
+  </div>
+  {% else %}<p class="empty-sm">Esta capacitación no tiene cuestionario.</p>{% endfor %}
+  {% if lv=='w' %}
+  <form class="subform" action="{{ url_for('cap_pregunta', cid=row['id']) }}" data-ajax-drawer>
+    <h3>Agregar pregunta</h3>
+    <div class="field"><label>Pregunta</label><input name="texto"></div>
+    <div class="fgrid">
+      <div class="field"><label>Opción A</label><input name="opcion_a"></div><div class="field"><label>Opción B</label><input name="opcion_b"></div>
+      <div class="field"><label>Opción C (opcional)</label><input name="opcion_c"></div><div class="field"><label>Opción D (opcional)</label><input name="opcion_d"></div>
+    </div>
+    <div class="field"><label>Respuesta correcta</label><select name="correcta"><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option></select></div>
+    <small class="err" data-err="__all__"></small>
+    <button class="btn primary">Agregar pregunta</button>
+  </form>
+  {% endif %}
+</section>
+{% endif %}
+
+<section class="tabpanel" data-panel="hist" hidden>
+  {% if hist %}<ol class="timeline">{% for h in hist %}<li><b>{{ h['accion'] }}</b> <small>{{ h['fecha']|fdt }} · {{ h['usuario'] }}</small>
+    <p>{{ h['resumen'] }}</p>{% if h['motivo'] %}<p class="muted">Motivo: {{ h['motivo'] }}</p>{% endif %}</li>{% endfor %}</ol>
+  {% else %}<p class="empty-sm">Aún no hay cambios registrados para este elemento.</p>{% endif %}
+</section>

@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block title %}Notificaciones{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Notificaciones</h1><p>Vencimientos, pendientes y situaciones que requieren atención, ordenados por urgencia.</p></div>
+  <div class="actions"><button class="btn" data-action="read-all">Marcar todas como leídas</button></div></div>
+<section class="card">
+  {% for n in items %}
+  <div class="att-item {{ 'read' if n.leida }}"><span class="pill p-{{ 'bad' if n.nivel=='Alta' else 'warn' }}">{{ 'Urgente' if n.nivel=='Alta' else 'Atención' }}</span>
+    <span class="grow"><a href="{{ n.link }}"><b>{{ n.titulo }}</b></a><small>{{ n.detalle }}</small></span>
+    {% if not n.leida %}<button class="btn xs" data-action="read-one" data-key="{{ n.key }}">Marcar leída</button>{% else %}<small class="muted">Leída</small>{% endif %}</div>
+  {% else %}<p class="empty-sm">No hay notificaciones.</p>{% endfor %}
+</section>
+{% endblock %}

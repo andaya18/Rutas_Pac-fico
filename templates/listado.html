@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+{% from 'partials/icons.html' import ic %}
+{% block title %}{{ titulo }}{% endblock %}
+
+{% macro fld(f) %}
+<div class="field {{ 'full' if f.full or f.t=='textarea' }}">
+  <label for="f-{{ f.name }}">{{ f.label }}{% if f.req %} <span class="req" aria-hidden="true">*</span><span class="sr">(obligatorio)</span>{% endif %}</label>
+  {% if f.t=='textarea' %}<textarea id="f-{{ f.name }}" name="{{ f.name }}" rows="3">{{ f.default_val or '' }}</textarea>
+  {% elif f.t in ('select','fk') %}
+    <select id="f-{{ f.name }}" name="{{ f.name }}"><option value="">{{ 'Selecciona una opción' if f.req else 'Sin asignar' }}</option>
+      {% for v, l in f.options %}<option value="{{ v }}" {{ 'selected' if f.default_val==v }}>{{ l }}</option>{% endfor %}</select>
+  {% elif f.t=='datetime' %}<input id="f-{{ f.name }}" name="{{ f.name }}" type="datetime-local" value="{{ f.default_val or '' }}">
+  {% elif f.t=='date' %}<input id="f-{{ f.name }}" name="{{ f.name }}" type="date" value="{{ f.default_val or '' }}">
+  {% elif f.t=='number' %}<input id="f-{{ f.name }}" name="{{ f.name }}" type="number" step="any" value="{{ f.default_val or '' }}">
+  {% elif f.t=='file' %}<input id="f-{{ f.name }}" name="{{ f.name }}" type="file" accept=".pdf,.png,.jpg,.jpeg">
+  {% elif f.t=='password' %}<input id="f-{{ f.name }}" name="{{ f.name }}" type="password" autocomplete="new-password">
+  {% else %}<input id="f-{{ f.name }}" name="{{ f.name }}" type="{{ 'email' if f.t=='email' else 'tel' if f.t=='tel' else 'text' }}" value="{{ f.default_val or '' }}">{% endif %}
+  {% if f.help %}<small class="help">{{ f.help }}</small>{% endif %}
+  <small class="err" data-err="{{ f.name }}"></small>
+</div>
+{% endmacro %}
+
+{% block content %}
+<div class="page-head">
+  <div><h1>{{ titulo }}</h1><p>{{ m.subtitulo }}</p></div>
+  <div class="actions">
+    {% if g.user['rol'] not in ('conductor','socio') %}<a class="btn" href="{{ url_for('exportar', mod=mod, **qs) }}">{{ ic('download',16) }} Exportar CSV</a>{% endif %}
+    {% if crear %}<button class="btn primary" data-action="new">{{ ic('plus',16) }} {{ 'Reportar novedad' if mod=='incidentes' and lv!='w' else 'Nuevo ' ~ m.singular }}</button>{% endif %}
+  </div>
+</div>
+{% if m.note %}<p class="note">{{ m.note }}</p>{% endif %}
+
+<div class="kpis">
+  {% for k in kpis %}
+  <a class="kpi k-{{ k.color }} {{ 'on' if k.active }}" href="{{ url_for('listado', mod=mod, k=k.idx) if not k.active else url_for('listado', mod=mod) }}" {% if k.active %}aria-current="true" title="Quitar este filtro"{% endif %}>
+    <div><span class="kpi-l">{{ k.label }}</span><strong class="kpi-v">{{ k.value }}</strong></div>
+    <span class="kpi-ic">{{ ic(k.icon, 22) }}</span>
+  </a>
+  {% endfor %}
+</div>
+
+<form class="card filters" method="get">
+  <div class="field grow"><label for="q">Buscar</label><input id="q" name="q" type="search" value="{{ q }}" placeholder="Escribe para buscar…"></div>
+  {% for f in filtros %}
+  <div class="field"><label for="flt-{{ f.key }}">{{ f.label }}</label>
+    <select id="flt-{{ f.key }}" name="{{ f.key }}"><option value="">Todos</option>
+      {% for v, l in f.options %}<option value="{{ v }}" {{ 'selected' if f.selected==v|string }}>{{ l }}</option>{% endfor %}</select></div>
+  {% endfor %}
+  {% if request.args.get('k') %}<input type="hidden" name="k" value="{{ request.args.get('k') }}">{% endif %}
+  <div class="filter-actions"><button class="btn soft">Aplicar filtros</button>
+    <a class="icon-btn" href="{{ url_for('listado', mod=mod) }}" aria-label="Limpiar filtros" title="Limpiar filtros">{{ ic('filterx') }}</a></div>
+</form>
+
+<section class="card table-card">
+  {% if rows %}
+  <div class="tbl-wrap">
+  <table class="tbl">
+    <thead><tr>
+      {% for c in m.columns %}
+      {% set nd = 'desc' if (sort==c[0] and dir=='asc') else 'asc' %}
+      <th aria-sort="{{ ('ascending' if dir=='asc' else 'descending') if sort==c[0] else 'none' }}"><a class="th-sort" href="{{ url_for('listado', mod=mod, **dict(qs, sort=c[0], dir=nd)) }}">{{ c[1] }}{% if sort==c[0] %} <span aria-hidden="true">{{ '▲' if dir=='asc' else '▼' }}</span>{% endif %}</a></th>
+      {% endfor %}
+      <th class="act-h"><span class="sr">Acciones</span></th>
+    </tr></thead>
+    <tbody>
+    {% for r in rows %}
+    <tr data-row data-id="{{ r['id'] }}">
+      {% for c in m.columns %}<td data-label="{{ c[1] }}">{{ r|cell(c) }}</td>{% endfor %}
+      <td class="act">
+        <div class="rowmenu">
+          <button class="icon-btn" data-action="menu" aria-haspopup="menu" aria-label="Acciones del registro">{{ ic('more') }}</button>
+          <div class="menu-list" role="menu" hidden>
+            {% if not m.no_detail %}<button role="menuitem" data-action="detail" data-id="{{ r['id'] }}">Ver detalle</button>{% endif %}
+            {% if lv=='w' and not m.readonly %}
+              <button role="menuitem" data-action="edit" data-id="{{ r['id'] }}">Editar</button>
+              {% if m.states %}<button role="menuitem" data-action="estado" data-id="{{ r['id'] }}" data-actual="{{ r[m.state_field|default('estado')] }}">Cambiar estado</button>{% endif %}
+              <button role="menuitem" class="danger" data-action="delete" data-id="{{ r['id'] }}">Eliminar</button>
+            {% endif %}
+          </div>
+        </div>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <div class="tbl-foot">
+    <span>Mostrando {{ first }} a {{ last }} de {{ total }}</span>
+    <nav class="pager" aria-label="Paginación">
+      {% if page>1 %}<a href="{{ url_for('listado', mod=mod, **dict(qs, page=page-1)) }}" aria-label="Página anterior">‹</a>{% endif %}
+      {% for p in range(1, pages+1) %}{% if p==1 or p==pages or (p-page)|abs<=1 %}<a class="{{ 'on' if p==page }}" href="{{ url_for('listado', mod=mod, **dict(qs, page=p)) }}" {% if p==page %}aria-current="page"{% endif %}>{{ p }}</a>{% elif (p-page)|abs==2 %}<span>…</span>{% endif %}{% endfor %}
+      {% if page<pages %}<a href="{{ url_for('listado', mod=mod, **dict(qs, page=page+1)) }}" aria-label="Página siguiente">›</a>{% endif %}
+    </nav>
+  </div>
+  {% else %}
+  <div class="empty"><h2>No hay resultados</h2>
+    <p>{% if q or request.args.get('k') or filtros|selectattr('selected')|list %}Ningún registro coincide con los filtros actuales. Prueba con otros criterios o limpia los filtros.{% else %}Todavía no hay registros en esta sección.{% endif %}</p>
+    {% if crear and not (q or request.args.get('k')) %}<button class="btn primary" data-action="new">Crear el primero</button>{% else %}<a class="btn" href="{{ url_for('listado', mod=mod) }}">Limpiar filtros</a>{% endif %}</div>
+  {% endif %}
+</section>
+
+<aside class="drawer" id="drawer" aria-label="Detalle del registro" hidden><div class="drawer-body" id="drawer-body"></div></aside>
+<div class="scrim drawer-scrim" data-action="close-drawer" hidden></div>
+
+{% if form %}
+<dialog id="dlg-form" class="dlg lg" data-mod="{{ mod }}" data-singular="{{ m.singular }}">
+  <form id="form" method="post" action="{{ url_for('guardar', mod=mod) }}" enctype="multipart/form-data" novalidate>
+    <input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="id" value="">
+    <div class="dlg-head"><h2 id="form-title">Nuevo {{ m.singular }}</h2><button type="button" class="icon-btn" data-action="close-dialog" aria-label="Cerrar">{{ ic('close') }}</button></div>
+    <div class="dlg-body">
+      {% if m.form_warning %}<div class="alert warn" role="note">{{ m.form_warning }}</div>{% endif %}
+      <div class="form-error alert bad" data-err="__all__" hidden></div>
+      <div class="fgrid">{% for f in form %}{{ fld(f) }}{% endfor %}</div>
+    </div>
+    <div class="dlg-foot"><button type="button" class="btn" data-action="close-dialog">Cancelar</button><button class="btn primary" id="form-save">Guardar</button></div>
+  </form>
+</dialog>
+{% endif %}
+
+<dialog id="dlg-estado" class="dlg sm" data-mod="{{ mod }}">
+  <form id="form-estado" novalidate>
+    <div class="dlg-head"><h2>Cambiar estado</h2><button type="button" class="icon-btn" data-action="close-dialog" aria-label="Cerrar">{{ ic('close') }}</button></div>
+    <div class="dlg-body">
+      <div class="field"><label for="est-nuevo">Nuevo estado</label>
+        <select id="est-nuevo" name="nuevo">{% for v, l in estado_options %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="est-motivo">Motivo <span id="est-req" class="req">*</span></label>
+        <textarea id="est-motivo" name="motivo" rows="3" placeholder="Explica brevemente el cambio"></textarea><small class="err" data-err="motivo"></small></div>
+      <div class="form-error alert bad" data-err="__all__" hidden></div>
+    </div>
+    <div class="dlg-foot"><button type="button" class="btn" data-action="close-dialog">Cancelar</button><button class="btn primary">Cambiar estado</button></div>
+  </form>
+</dialog>
+<script type="application/json" id="reason-cfg">{{ {'all': m.reason_all|default(false), 'states': m.reason_states|default([])}|tojson }}</script>
+{% endblock %}

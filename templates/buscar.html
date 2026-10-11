@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+{% block title %}Búsqueda{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Resultados de búsqueda</h1><p>{% if term %}Para «{{ term }}»{% else %}Escribe algo en el buscador superior.{% endif %}</p></div></div>
+{% for gr in grupos %}
+<section class="card table-card"><div class="card-head"><h2>{{ gr.titulo }} <small class="muted">({{ gr.total }})</small></h2><a class="link" href="{{ url_for('listado', mod=gr.mod, q=term) }}">Ver todos</a></div>
+  <div class="tbl-wrap"><table class="tbl compact"><tbody>{% for r in gr.rows %}<tr>{% for c in gr.cols %}<td>{{ r|cell(c) }}</td>{% endfor %}</tr>{% endfor %}</tbody></table></div></section>
+{% else %}{% if term %}<div class="empty"><h2>Sin coincidencias</h2><p>No encontramos nada con ese texto en los módulos a los que tienes acceso.</p></div>{% endif %}{% endfor %}
+{% endblock %}
